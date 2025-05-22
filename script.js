@@ -1,80 +1,82 @@
-function loadProgress() {
-  return (
-    JSON.parse(localStorage.getItem("bmProgress")) ||
-    Array(tasks.length).fill(false)
-  );
-}
-function saveProgress(progress) {
-  localStorage.setItem("bmProgress", JSON.stringify(progress));
+// script.js
+import { tasks } from "./tasks.js";
+import { Storage } from "./storage.js";
+import { createEl } from "./utils.js";
+
+function toggleAccordion(header, body, arrow) {
+  const opened = body.style.display === "block";
+  body.style.display = opened ? "none" : "block";
+  header.setAttribute("aria-expanded", String(!opened));
+  arrow.classList.toggle("opened", !opened);
 }
 
 function renderTasks() {
-  const progress = loadProgress();
-  const taskList = document.getElementById("taskList");
-  taskList.innerHTML = "";
+  const progress = Storage.load();
+  const container = document.getElementById("taskList");
+  container.innerHTML = "";
 
   tasks.forEach((task, index) => {
-    const taskDiv = document.createElement("div");
-    taskDiv.className = "accordion-task";
+    // 1) Создаём элементы
+    const header = createEl("div", {
+      class: `accordion-header${progress[index] ? " completed" : ""}`,
+      tabindex: "0",
+      "aria-expanded": "false",
+    });
+    const title = createEl("span", {}, `День ${index + 1}: ${task.title}`);
+    const arrowBtn = createEl("button", {
+      class: "toggle-btn",
+      html: "&#9654;",
+      "aria-label": "Показать детали",
+    });
+    const completeBtn = createEl(
+      "button",
+      {
+        class: `complete-btn${progress[index] ? " completed" : ""}`,
+        disabled: progress[index],
+      },
+      progress[index] ? "✓ Выполнено" : "Выполнить"
+    );
 
-    const header = document.createElement("div");
-    header.className =
-      "accordion-header" + (progress[index] ? " completed" : "");
-    header.setAttribute("aria-expanded", "false");
-
-    const span = document.createElement("span");
-    span.textContent = `День ${index + 1}: ${task.title}`;
-
-    const arrowBtn = document.createElement("button");
-    arrowBtn.className = "toggle-btn";
-    arrowBtn.innerHTML = "&#9654;";
-
-    const completeBtn = document.createElement("button");
-    completeBtn.className =
-      "complete-btn" + (progress[index] ? " completed" : "");
-    completeBtn.textContent = progress[index] ? "✓ Выполнено" : "Выполнить";
-    completeBtn.disabled = progress[index] || false;
-
-    completeBtn.addEventListener("click", (e) => {
-      progress[index] = true;
-      saveProgress(progress);
-      renderTasks();
-      e.stopPropagation();
+    // 2) Создаём тело аккордеона до навешивания событий
+    const body = createEl("div", {
+      class: "accordion-body",
+      html: task.details,
+      style: "display:none;",
     });
 
-    const body = document.createElement("div");
-    body.className = "accordion-body";
-    body.innerHTML = task.details;
-    body.style.display = "none";
+    const controls = createEl(
+      "div",
+      { class: "controls" },
+      arrowBtn,
+      completeBtn
+    );
 
-    function toggleAccordion(e) {
-      if (e.target === completeBtn) return;
-      const opened = body.style.display === "block";
-      body.style.display = opened ? "none" : "block";
-      header.setAttribute("aria-expanded", !opened);
-      arrowBtn.classList.toggle("opened", !opened);
-    }
-
-    header.addEventListener("click", toggleAccordion);
+    // 3) Вешаем обработчики на уже существующие переменные
+    header.addEventListener("click", (e) => {
+      if (e.target !== completeBtn) {
+        toggleAccordion(header, body, arrowBtn);
+      }
+    });
+    header.addEventListener("keydown", (e) => {
+      if ((e.key === "Enter" || e.key === " ") && e.target === header) {
+        toggleAccordion(header, body, arrowBtn);
+      }
+    });
     arrowBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      toggleAccordion();
+      toggleAccordion(header, body, arrowBtn);
+    });
+    completeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      progress[index] = true;
+      Storage.save(progress);
+      renderTasks();
     });
 
-    header.appendChild(span);
-
-    // создаём обёртку для кнопок
-    const controls = document.createElement("div");
-    controls.className = "controls";
-    controls.appendChild(arrowBtn);
-    controls.appendChild(completeBtn);
-
-    // добавляем блок кнопок
-    header.appendChild(controls);
-
-    taskDiv.appendChild(header);
-    taskDiv.appendChild(body);
-    taskList.appendChild(taskDiv);
+    // 4) Собирать и добавлять в DOM
+    header.append(title, controls);
+    const taskEl = createEl("div", { class: "accordion-task" }, header, body);
+    container.appendChild(taskEl);
   });
 }
 

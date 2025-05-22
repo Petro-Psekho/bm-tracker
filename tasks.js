@@ -1,4 +1,4 @@
-const tasks = [
+export const tasks = [
   {
     title: "Заполнить профиль, добавить друзей, лайки и подписки",
     details:
